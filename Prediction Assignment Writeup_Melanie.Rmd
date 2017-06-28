@@ -1,0 +1,99 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Melanie"
+date: "28 Juni 2017"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+library(gridExtra)
+```
+
+
+#Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+The project can be found on github: http://benakiva.github.io/practicalML/ and https://github.com/benakiva/practicalMLu can also embed plots, for example:
+
+#Source of Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+#Loading and Cleaning the Data
+The data sets were saved into workign directory. 
+```{r echo=TRUE}
+train <- read.csv('pml-training.csv', na.strings=c("NA","")) 
+test <- read.csv('pml-training.csv', na.strings=c("NA","")) 
+```
+We remove all columns which have NAs. After this we delete the irrelevant data. In our case irrelevant data are the columns where all values are missing.
+```{r echo=TRUE}
+train<-train[,colSums(is.na(train)) == 0]
+test <-test[,colSums(is.na(test)) == 0]
+```
+```{r echo=TRUE}
+train <- train[,-c(1:7)]
+test <- test[,-c(1:7)]
+```
+Here you see the prepared dataset:
+```{r echo=FALSE}
+dim(train)
+dim(test)
+#head(train)
+#head(test)
+```
+##Partition the training dataset
+
+For cross-validation we split our data into a 60% training set and a 40% testing set. For this we are using random subsampling without replacement. Also we use a pseudo-random number generator seed to 1234.
+```{r echo=TRUE}
+set.seed(1234)
+xtrain <- createDataPartition(train$classe, p=3/5, list=FALSE)
+training <- train[xtrain,]
+testing <- train[-xtrain,]
+```
+#Building the model
+
+###Data exploration for the classe variable
+The variable has 5 different levels, as you can see in the plot. 
+```{r echo=TRUE}
+plot(testing$classe, col='#64A505', main="Variable levels classe in the testing data set", xlab="classe levels", ylab="frequency")
+```
+##First model: decision tree
+We can see a accurancy around 74%. This is less then the second random forest model.
+
+```{r echo=TRUE}
+dtmodel <- rpart(classe ~ ., data = training, method="class")
+rpart.plot(dtmodel, main="Decision Tree", extra=100, under=TRUE, faclen=0)
+#show the result on testing
+set.seed(1234)
+predicttestdt <- predict(dtmodel, testing, type = "class")
+confusionMatrix(predicttestdt, testing$classe)
+```
+###Second model: random forest
+As we expect you can see a higher accurancy with the Random Forest model then with the decision tree. We get a accurancy around 100%, so the second model is choosen for the coursera quiz.
+```{r echo=TRUE}
+set.seed(1234)
+rfmodel <- randomForest(classe ~. , data=training, ntree = 1000)
+predicttestrf <- predict(rfmodel, testing, type = "class")
+
+#show the result on testing
+confusionMatrix(predicttestrf, testing$classe)
+```
